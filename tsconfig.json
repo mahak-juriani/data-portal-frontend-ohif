@@ -25,7 +25,7 @@
     "platform/**/public/**/*",
     "extensions/**/src/**/*",
     "modes/**/src/**/*",
-    "tests/**/*",
+    "tests/**/*"
   ],
   "exclude": ["node_modules", "dist"]
 }

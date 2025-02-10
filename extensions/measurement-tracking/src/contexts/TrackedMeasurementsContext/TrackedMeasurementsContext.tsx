@@ -83,31 +83,87 @@ function TrackedMeasurementsContextProvider(
           initialImageOptions: {
             index: imageIndex,
           },
+          syncMeasurement: true,
         },
       });
     },
 
     jumpToSameImageInActiveViewport: (ctx, evt) => {
       const { trackedStudy, trackedSeries, activeViewportId } = ctx;
+      console.log('📌 Checking Active Viewport ID:', activeViewportId);
+      console.log('📌 Available Viewports:', cornerstoneViewportService.viewportsById);
       const measurements = measurementService.getMeasurements();
       const trackedMeasurements = measurements.filter(
         m => trackedStudy === m.referenceStudyUID && trackedSeries.includes(m.referenceSeriesUID)
       );
+      const jumpToMeasurement = async () => {
+        const trackedMeasurement = trackedMeasurements[0];
 
-      const trackedMeasurement = trackedMeasurements[0];
-      const referencedDisplaySetUID = trackedMeasurement.displaySetInstanceUID;
-      const viewport = cornerstoneViewportService.getCornerstoneViewport(activeViewportId);
-      const imageIndex = viewport.getCurrentImageIdIndex();
+        if (!trackedMeasurement) {
+          console.error('🚨 ERROR: No tracked measurements found.');
+          return;
+        }
 
-      viewportGridService.setDisplaySetsForViewport({
-        viewportId: activeViewportId,
-        displaySetInstanceUIDs: [referencedDisplaySetUID],
-        viewportOptions: {
-          initialImageOptions: {
-            index: imageIndex,
+        const referencedDisplaySetUID = trackedMeasurement.displaySetInstanceUID;
+
+        // 🛠️ Try getting viewport ID from activeViewportId OR registered viewports
+        let viewportIdToUse =
+          activeViewportId || Object.keys(cornerstoneViewportService.viewportsById)[0];
+
+        if (!viewportIdToUse) {
+          console.error(
+            '🚨 ERROR: No valid viewport ID found. Available viewports:',
+            cornerstoneViewportService.viewportsById
+          );
+          return;
+        }
+
+        console.log('📌 Using Viewport ID:', viewportIdToUse);
+
+        // 🛠️ Ensure viewport exists
+        let viewport = cornerstoneViewportService.getCornerstoneViewport(viewportIdToUse);
+        if (!viewport) {
+          console.warn(`⚠️ Viewport not found for ID ${viewportIdToUse}. Retrying in 500ms...`);
+
+          // Retry mechanism in case the viewport is delayed in registering
+          let retries = 5;
+          while (!viewport && retries > 0) {
+            await new Promise(resolve => setTimeout(resolve, 500));
+            viewport = cornerstoneViewportService.getCornerstoneViewport(viewportIdToUse);
+            retries--;
+          }
+
+          if (!viewport) {
+            console.error(`🚨 ERROR: Viewport still not found after retries: ${viewportIdToUse}`);
+            return;
+          }
+        }
+
+        // 🛠️ Ensure getCurrentImageIdIndex exists
+        if (!viewport.getCurrentImageIdIndex) {
+          console.error(
+            `🚨 ERROR: getCurrentImageIdIndex is not available on viewport ID ${viewportIdToUse}`
+          );
+          return;
+        }
+
+        // ✅ Successfully found viewport and image index
+        const imageIndex = viewport.getCurrentImageIdIndex();
+        console.log(`✅ Viewport Found! Jumping to Measurement at Index: ${imageIndex}`);
+
+        // 🛠️ Finally, trigger the measurement display
+        viewportGridService.setDisplaySetsForViewport({
+          viewportId: viewportIdToUse,
+          displaySetInstanceUIDs: [referencedDisplaySetUID],
+          viewportOptions: {
+            initialImageOptions: {
+              index: imageIndex,
+            },
           },
-        },
-      });
+        });
+      };
+
+      jumpToMeasurement();
     },
     showStructuredReportDisplaySetInActiveViewport: (ctx, evt) => {
       if (evt.data.createdDisplaySetInstanceUIDs.length > 0) {
@@ -196,8 +252,13 @@ function TrackedMeasurementsContextProvider(
   // - Fix viewport border resize
   // - created/destroyed hooks for extensions (cornerstone measurement subscriptions in it's `init`)
 
-  const measurementTrackingMachine = Machine(machineConfiguration, machineOptions);
-
+  const measurementTrackingMachine = Machine(machineConfiguration, {
+    ...machineOptions,
+    context: {
+      ...machineOptions.context,
+      syncMeasurements: true, // ✅ Ensure this is always set
+    },
+  });
   const [trackedMeasurements, sendTrackedMeasurementsEvent] = useMachine(
     measurementTrackingMachine
   );
@@ -212,60 +273,81 @@ function TrackedMeasurementsContextProvider(
   // ~~ Listen for changes to ViewportGrid for potential SRs hung in panes when idle
   useEffect(() => {
     const triggerPromptHydrateFlow = async () => {
-      if (viewports.size > 0) {
-        const activeViewport = viewports.get(activeViewportId);
+      console.log('📌 Checking Active Viewport for Measurement Hydration...');
 
-        if (!activeViewport || !activeViewport?.displaySetInstanceUIDs?.length) {
-          return;
-        }
+      // Ensure activeViewportId is valid
+      if (!activeViewportId) {
+        console.error('🚨 ERROR: activeViewportId is undefined!');
+        return;
+      }
 
-        // Todo: Getting the first displaySetInstanceUID is wrong, but we don't have
-        // tracking fusion viewports yet. This should change when we do.
-        const { displaySetService } = servicesManager.services;
-        const displaySet = displaySetService.getDisplaySetByUID(
-          activeViewport.displaySetInstanceUIDs[0]
+      let retries = 5;
+
+      // Wait for viewport to be available
+      while (!viewports.has(activeViewportId) && retries > 0) {
+        console.warn(`⚠️ Viewport not found! Retrying in 500ms... (${retries} attempts left)`);
+        await new Promise(resolve => setTimeout(resolve, 500));
+        retries--;
+      }
+
+      if (retries === 0 && !viewports.has(activeViewportId)) {
+        console.error(`🚨 ERROR: Viewport still not found after retries: ${activeViewportId}`);
+        console.error('📌 Available Viewports:', viewports);
+        return;
+      }
+
+      const activeViewport = viewports.get(activeViewportId);
+      if (!activeViewport || !activeViewport?.displaySetInstanceUIDs?.length) {
+        console.error(
+          `🚨 ERROR: Viewport is undefined or has no display sets: ${activeViewportId}`
         );
+        return;
+      }
 
-        if (!displaySet) {
-          return;
-        }
+      console.log(`✅ Viewport Ready: ${activeViewportId}`, activeViewport);
 
-        // If this is an SR produced by our SR SOPClassHandler,
-        // and it hasn't been loaded yet, do that now so we
-        // can check if it can be rehydrated or not.
-        //
-        // Note: This happens:
-        // - If the viewport is not currently an OHIFCornerstoneSRViewport
-        // - If the displaySet has never been hung
-        //
-        // Otherwise, the displaySet will be loaded by the useEffect handler
-        // listening to displaySet changes inside OHIFCornerstoneSRViewport.
-        // The issue here is that this handler in TrackedMeasurementsContext
-        // ends up occurring before the Viewport is created, so the displaySet
-        // is not loaded yet, and isRehydratable is undefined unless we call load().
-        if (
-          displaySet.SOPClassHandlerId === SR_SOPCLASSHANDLERID &&
-          !displaySet.isLoaded &&
-          displaySet.load
-        ) {
-          await displaySet.load();
-        }
+      // Fetch DisplaySet
+      const { displaySetService } = servicesManager.services;
+      const displaySetUID = activeViewport.displaySetInstanceUIDs[0];
+      console.log(`📌 Fetching DisplaySet for UID: ${displaySetUID}`);
 
-        // Magic string
-        // load function added by our sopClassHandler module
-        if (
-          displaySet.SOPClassHandlerId === SR_SOPCLASSHANDLERID &&
-          displaySet.isRehydratable === true
-        ) {
-          console.log('sending event...', trackedMeasurements);
-          sendTrackedMeasurementsEvent('PROMPT_HYDRATE_SR', {
-            displaySetInstanceUID: displaySet.displaySetInstanceUID,
-            SeriesInstanceUID: displaySet.SeriesInstanceUID,
-            viewportId: activeViewportId,
-          });
-        }
+      const displaySet = displaySetService.getDisplaySetByUID(displaySetUID);
+      if (!displaySet) {
+        console.error(`🚨 ERROR: DisplaySet not found for UID: ${displaySetUID}`);
+        return;
+      }
+
+      console.log(`✅ Found DisplaySet:`, displaySet);
+
+      // Load Structured Report if necessary
+      if (
+        displaySet.SOPClassHandlerId === SR_SOPCLASSHANDLERID &&
+        !displaySet.isLoaded &&
+        displaySet.load
+      ) {
+        console.log('📌 Loading DisplaySet for hydration...');
+        await displaySet.load();
+        console.log('✅ DisplaySet Loaded Successfully');
+      }
+
+      // Trigger SR Hydration if possible
+      if (
+        displaySet.SOPClassHandlerId === SR_SOPCLASSHANDLERID &&
+        displaySet.isRehydratable === true
+      ) {
+        console.log(
+          `📌 Triggering Measurement Hydration for UID: ${displaySet.displaySetInstanceUID}`
+        );
+        sendTrackedMeasurementsEvent('PROMPT_HYDRATE_SR', {
+          displaySetInstanceUID: displaySet.displaySetInstanceUID,
+          SeriesInstanceUID: displaySet.SeriesInstanceUID,
+          viewportId: activeViewportId,
+        });
+      } else {
+        console.warn('⚠️ DisplaySet is not rehydratable.');
       }
     };
+
     triggerPromptHydrateFlow();
   }, [
     trackedMeasurements,

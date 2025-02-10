@@ -88,7 +88,12 @@ export default class PanelService extends PubSubService {
     return similarPanels;
   }
 
-  private _calculateSimilarity(str1: string, str2: string): number {
+  private _calculateSimilarity(str1: any, str2: any): number {
+    if (typeof str1 !== 'string' || typeof str2 !== 'string') {
+      console.warn('Invalid input to _calculateSimilarity:', { str1, str2 });
+      return 0; // Return 0 similarity if one of them is invalid
+    }
+
     const set1 = new Set(str1.toLowerCase().split(''));
     const set2 = new Set(str2.toLowerCase().split(''));
     const intersection = new Set([...set1].filter(x => set2.has(x)));

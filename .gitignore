@@ -58,3 +58,4 @@ tests/playwright-report/
 /playwright/.cache/
 
 **/*.tar
+env/

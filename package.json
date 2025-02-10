@@ -40,7 +40,7 @@
     "dev:static": "lerna run dev:static --stream",
     "orthanc:up": "docker-compose -f platform/app/.recipes/Nginx-Orthanc/docker-compose.yml up",
     "install:dev": "cp -f yarn.lock addOns/yarn.lock && cd addOns && yarn install --modules-folder ../node_modules",
-    "preinstall": "node preinstall.js",
+    "preinstall": "node preinstall.cjs",
     "start": "yarn run dev",
     "test": "yarn run test:unit",
     "test:data": "git submodule update --init -f testdata",

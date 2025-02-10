@@ -1,5 +1,4 @@
 import { hydrateStructuredReport } from '@ohif/extension-cornerstone-dicom-sr';
-import { ButtonEnums } from '@ohif/ui';
 
 const RESPONSE = {
   NO_NEVER: -1,
@@ -12,77 +11,28 @@ const RESPONSE = {
 };
 
 function promptHydrateStructuredReport({ servicesManager, extensionManager, appConfig }, ctx, evt) {
-  const { uiViewportDialogService, displaySetService } = servicesManager.services;
+  const { displaySetService } = servicesManager.services;
   const { viewportId, displaySetInstanceUID } = evt;
   const srDisplaySet = displaySetService.getDisplaySetByUID(displaySetInstanceUID);
-  return new Promise(async function (resolve, reject) {
-    const promptResult = appConfig?.disableConfirmationPrompts
-      ? RESPONSE.HYDRATE_REPORT
-      : await _askTrackMeasurements(uiViewportDialogService, viewportId);
+  console.log('💡 Running Structured Report Hydration...');
 
-    // Need to do action here... So we can set state...
-    let StudyInstanceUID, SeriesInstanceUIDs;
+  return new Promise(function (resolve) {
+    // Directly hydrate the structured report without any user prompt
+    console.warn('!! HYDRATING STRUCTURED REPORT');
+    const hydrationResult = hydrateStructuredReport(
+      { servicesManager, extensionManager, appConfig },
+      displaySetInstanceUID
+    );
 
-    if (promptResult === RESPONSE.HYDRATE_REPORT) {
-      console.warn('!! HYDRATING STRUCTURED REPORT');
-      const hydrationResult = hydrateStructuredReport(
-        { servicesManager, extensionManager, appConfig },
-        displaySetInstanceUID
-      );
-
-      StudyInstanceUID = hydrationResult.StudyInstanceUID;
-      SeriesInstanceUIDs = hydrationResult.SeriesInstanceUIDs;
-    }
+    const { StudyInstanceUID, SeriesInstanceUIDs } = hydrationResult;
 
     resolve({
-      userResponse: promptResult,
+      userResponse: RESPONSE.HYDRATE_REPORT,
       displaySetInstanceUID: evt.displaySetInstanceUID,
       srSeriesInstanceUID: srDisplaySet.SeriesInstanceUID,
       viewportId,
       StudyInstanceUID,
       SeriesInstanceUIDs,
-    });
-  });
-}
-
-function _askTrackMeasurements(uiViewportDialogService, viewportId) {
-  return new Promise(function (resolve, reject) {
-    const message = 'Do you want to continue tracking measurements for this study?';
-    const actions = [
-      {
-        id: 'no-hydrate',
-        type: ButtonEnums.type.secondary,
-        text: 'No',
-        value: RESPONSE.CANCEL,
-      },
-      {
-        id: 'yes-hydrate',
-        type: ButtonEnums.type.primary,
-        text: 'Yes',
-        value: RESPONSE.HYDRATE_REPORT,
-      },
-    ];
-    const onSubmit = result => {
-      uiViewportDialogService.hide();
-      resolve(result);
-    };
-
-    uiViewportDialogService.show({
-      viewportId,
-      type: 'info',
-      message,
-      actions,
-      onSubmit,
-      onOutsideClick: () => {
-        uiViewportDialogService.hide();
-        resolve(RESPONSE.CANCEL);
-      },
-      onKeyPress: event => {
-        if (event.key === 'Enter') {
-          const action = actions.find(action => action.value === RESPONSE.HYDRATE_REPORT);
-          onSubmit(action.value);
-        }
-      },
     });
   });
 }

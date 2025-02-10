@@ -245,9 +245,25 @@ function WorkList({
   const offset = resultsPerPage * rollingPageNumber;
   const offsetAndTake = offset + resultsPerPage;
   const tableDataSource = sortedStudies.map((study, key) => {
+    console.log(`Row ${key + 1}:`, {
+      patientName: study.patientName,
+      mrn: study.mrn,
+    });
+    console.log('MRN Data for row', key, ':', study);
+
     const rowKey = key + 1;
     const isExpanded = expandedRows.some(k => k === rowKey);
-    const { studyInstanceUid, accession, modalities, instances, description, date, time } = study;
+    const {
+      studyInstanceUid,
+      accession,
+      modalities,
+      instances,
+      description,
+      date,
+      time,
+      patientName,
+      mrn,
+    } = study;
     const studyDate =
       date &&
       moment(date, ['YYYYMMDD', 'YYYY.MM.DD'], true).isValid() &&
@@ -265,7 +281,12 @@ function WorkList({
       row: [
         {
           key: 'patientName',
-          content: <TooltipClipboard>Study {rowKey}</TooltipClipboard>,
+          content: <TooltipClipboard>{patientName || 'Unknown Patient'}</TooltipClipboard>,
+          gridCol: 3,
+        },
+        {
+          key: 'mrn',
+          content: <TooltipClipboard>{mrn || 'No MRN'}</TooltipClipboard>,
           gridCol: 4,
         },
         {
@@ -537,7 +558,6 @@ function WorkList({
             }
           />
         </div>
-
         {hasStudies ? (
           <div className="mx-auto flex w-full max-w-6xl grow flex-col">
             {' '}
@@ -581,6 +601,8 @@ WorkList.propTypes = {
 };
 
 const defaultFilterValues = {
+  patientName: '',
+  mrn: '',
   studyDate: {
     startDate: null,
     endDate: null,

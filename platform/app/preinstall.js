@@ -1,6 +1,6 @@
 console.log('preinstall.js');
 
-const { exec } = require('child_process');
+import { exec } from 'child_process';
 const log = (err, stdout, stderr) => console.log(stdout);
 
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN;

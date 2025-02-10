@@ -43,7 +43,16 @@ const StudyBrowser = ({
   const getTabContent = () => {
     const tabData = tabs.find(tab => tab.name === activeTabName);
     return tabData.studies.map(
-      ({ studyInstanceUid, date, description, numInstances, modalities, displaySets }) => {
+      ({
+        studyInstanceUid,
+        patientName,
+        mrn,
+        date,
+        description,
+        numInstances,
+        modalities,
+        displaySets,
+      }) => {
         if (!experimentalStudyBrowserSort) {
           sortStudySeries(displaySets);
         }
@@ -51,6 +60,8 @@ const StudyBrowser = ({
         return (
           <React.Fragment key={studyInstanceUid}>
             <StudyItem
+              patientName={patientName}
+              mrn={mrn}
               date={date}
               description={description}
               numInstances={numInstances}

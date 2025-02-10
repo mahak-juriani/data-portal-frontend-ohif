@@ -1,0 +1,25 @@
+0 silly argv {
+0 silly argv   _: [ 'run' ],
+0 silly argv   stream: true,
+0 silly argv   lernaVersion: '8.1.9',
+0 silly argv   '$0': '../../../.yarn/bin/lerna',
+0 silly argv   script: 'dev:viewer'
+0 silly argv }
+1 notice cli v8.1.9
+2 verbose packageConfigs Explicit "packages" configuration found in lerna.json. Resolving packages using the configured glob(s): ["extensions/*","extensions/custom-panel","platform/*","modes/*","addOns/externals/*"]
+3 verbose rootPath /home/mahak/Desktop/IITD/data-portal-frontend-ohif
+4 error MultipleProjectsWithSameNameError: The following projects are defined in multiple locations:
+4 error   - @ohif/extension-measurement-tracking:
+4 error     - extensions/custom-panel
+4 error     - extensions/measurement-tracking
+4 error
+4 error   To fix this, set a unique name for each project in a project.json inside the project's root. If the project does not currently have a project.json, you can create one that contains only a name.
+4 error       at validateAndNormalizeProjectRootMap (/home/mahak/.config/yarn/global/node_modules/nx/src/project-graph/utils/project-configuration-utils.js:453:15)
+4 error       at mergeCreateNodesResults (/home/mahak/.config/yarn/global/node_modules/nx/src/project-graph/utils/project-configuration-utils.js:339:9)
+4 error       at /home/mahak/.config/yarn/global/node_modules/nx/src/project-graph/utils/project-configuration-utils.js:283:85
+4 error       at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+4 error       at async processFilesAndCreateAndSerializeProjectGraph (/home/mahak/.config/yarn/global/node_modules/nx/src/daemon/server/project-graph-incremental-recomputation.js:160:43)
+4 error       at async getCachedSerializedProjectGraphPromise (/home/mahak/.config/yarn/global/node_modules/nx/src/daemon/server/project-graph-incremental-recomputation.js:52:24)
+4 error       at async handleRequestProjectGraph (/home/mahak/.config/yarn/global/node_modules/nx/src/daemon/server/handle-request-project-graph.js:12:24)
+4 error       at async handleResult (/home/mahak/.config/yarn/global/node_modules/nx/src/daemon/server/server.js:180:16)
+4 error       at async handleMessage (/home/mahak/.config/yarn/global/node_modules/nx/src/daemon/server/server.js:109:9)

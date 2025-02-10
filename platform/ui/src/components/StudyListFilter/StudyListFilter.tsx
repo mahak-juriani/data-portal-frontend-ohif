@@ -21,7 +21,7 @@ const StudyListFilter = ({
   getDataSourceConfigurationComponent,
 }) => {
   const { t } = useTranslation('StudyList');
-  const { sortBy, sortDirection } = filterValues;
+  const { sortBy, sortDirection, patienName, mrn } = filterValues;
   const filterSorting = { sortBy, sortDirection };
   const [instances, setInstances] = useState<any>();
   const [isModalOpen, setIsModalOpen] = useState(false);

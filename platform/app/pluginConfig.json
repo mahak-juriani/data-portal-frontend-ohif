@@ -88,6 +88,16 @@
       "packageName": "@ohif/mode-basic-dev-mode",
       "default": false,
       "version": "3.0.0"
+    },
+    {
+      "packageName": "@ohif/mode-cancer-detection",
+      "default": true,
+      "version": "1.0.0"
+    },
+    {
+      "packageName": "@ohif/mode-interactive-segmentation",
+      "default": true,
+      "version": "3.9.0-beta.101"
     }
   ],
   "public": [

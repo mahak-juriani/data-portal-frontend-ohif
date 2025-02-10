@@ -1,3 +1,5 @@
+export let globalServicesManager = null;
+
 import {
   CommandsManager,
   ExtensionManager,
@@ -133,7 +135,7 @@ async function appInit(appConfigOrFunc, defaultExtensions, defaultModes) {
   // Hack alert - don't touch the original modes definition,
   // but there are still dependencies on having the appConfig modes defined
   appConfig.modes = appConfig.loadedModes;
-
+  globalServicesManager = servicesManager;
   return {
     appConfig,
     commandsManager,

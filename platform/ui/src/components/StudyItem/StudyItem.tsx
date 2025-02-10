@@ -9,6 +9,8 @@ const baseClasses =
   'first:border-0 border-t border-secondary-light cursor-pointer select-none outline-none';
 
 const StudyItem = ({
+  patientName,
+  mrn,
   date,
   description,
   numInstances,
@@ -31,6 +33,9 @@ const StudyItem = ({
     >
       <div className="flex flex-1 flex-col px-4 pb-2">
         <div className="flex flex-row items-center justify-between pt-2 pb-2">
+          <div className="pr-5 text-base text-white">
+            <strong>{patientName || 'Unknown Patient'}</strong> ({mrn || 'No MRN'})
+          </div>
           <div className="text-base text-white">{date}</div>
           <div className="text-secondary-main flex flex-row items-center text-base">
             <Icon
@@ -70,6 +75,8 @@ const StudyItem = ({
 };
 
 StudyItem.propTypes = {
+  patientName: PropTypes.string,
+  mrn: PropTypes.string,
   date: PropTypes.string.isRequired,
   description: PropTypes.string,
   modalities: PropTypes.string.isRequired,

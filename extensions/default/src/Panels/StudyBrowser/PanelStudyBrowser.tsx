@@ -67,25 +67,29 @@ function PanelStudyBrowser({
   };
 
   const onDoubleClickThumbnailHandler = displaySetInstanceUID => {
+    console.log(`🖼️ Double-clicked Thumbnail: ${displaySetInstanceUID}`);
+
+    let displaySet = displaySetService.getDisplaySetByUID(displaySetInstanceUID);
+    if (!displaySet) {
+      console.error(`🚨 ERROR: DisplaySet ${displaySetInstanceUID} not found.`);
+      console.log('🧐 Available Display Sets:', displaySetService.activeDisplaySets);
+      return;
+    }
+
     let updatedViewports = [];
     const viewportId = activeViewportId;
+
     try {
       updatedViewports = hangingProtocolService.getViewportsRequireUpdate(
         viewportId,
         displaySetInstanceUID,
         isHangingProtocolLayout
       );
+      viewportGridService.setDisplaySetsForViewports(updatedViewports);
     } catch (error) {
-      console.warn(error);
-      uiNotificationService.show({
-        title: 'Thumbnail Double Click',
-        message: 'The selected display sets could not be added to the viewport.',
-        type: 'info',
-        duration: 3000,
-      });
+      console.error(`🚨 ERROR: Failed to update viewport for DisplaySet ${displaySetInstanceUID}`);
+      console.error(error);
     }
-
-    viewportGridService.setDisplaySetsForViewports(updatedViewports);
   };
 
   // ~~ studyDisplayList
@@ -356,6 +360,13 @@ function _mapDataSourceStudies(studies) {
 function _mapDisplaySets(displaySets, thumbnailImageSrcMap) {
   const thumbnailDisplaySets = [];
   const thumbnailNoImageDisplaySets = [];
+  // if (!ds) {
+  //   console.error('🚨 ERROR: DisplaySet (ds) is undefined!');
+  //   return;
+  // }
+  // if (ds.Modality === 'SR') {
+  //   console.log(`📄 Found SR Display Set:`, ds);
+  // }
 
   displaySets
     .filter(ds => !ds.excludeFromThumbnailBrowser)
