@@ -8,8 +8,9 @@ import eventEmitter from '../../../../cornerstone/src/utils/eventEmitter';
 import { Classification } from '../Classification';
 import { OptionEnum } from '../../../../cornerstone/src/utils/OptionEnum';
 import RunModel from '../../runModelButton';
+import mockApi from '../../../../../platform/ui/src/apis/mockApi';
 
-function ActionButtons({ disabled = false, data = null, orthancId = null }) {
+function ActionButtons({ disabled = false, data = null, orthancId = null, category }) {
   const { t } = useTranslation('MeasurementTable');
   const [formData, setFormData] = useState({
     indications: '',
@@ -31,50 +32,58 @@ function ActionButtons({ disabled = false, data = null, orthancId = null }) {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const response = await apiClient.getGroundTruth(studyInstanceUid);
-        if (response.success) {
-          const { indications, findings, histopathology, annotations } = response.result.attachment;
-          setFormData(prevState => ({
-            ...prevState,
-            indications: indications || prevState.indications,
-            findings: findings || prevState.findings,
-            histopathology: histopathology || prevState.histopathology,
-            annotations: annotations || prevState.annotations,
-          }));
-        } else {
-          console.error('API call to load data unsuccessful');
+        if (!category) {
+          console.error('❌ ERROR: category is undefined!');
+          return;
+        }
+
+        console.log(
+          `📡 Fetching Ground Truth for Study UID: ${studyInstanceUid}, Category: ${category}`
+        );
+
+        // ✅ Load from Mock API (stored in localStorage)
+        const storedData = await mockApi.getGroundTruth(studyInstanceUid, category);
+        if (storedData) {
+          console.log(`✅ Loaded Ground Truth from Mock API (${category}):`, storedData);
+
+          if (category === 'mammo') {
+            setFormData({
+              indications: storedData.indications || '',
+              findings: storedData.findings || '',
+              histopathology: storedData.histopathology || '',
+              annotations: storedData.annotations || [],
+            });
+          }
+
+          return; // ✅ Stop API call if data exists in Mock API
         }
       } catch (error) {
-        console.error(error);
+        console.error('❌ Error fetching Ground Truth:', error);
       }
     };
 
-    if (studyInstanceUid) {
+    if (studyInstanceUid && category) {
       fetchData();
     }
-  }, []);
+  }, [studyInstanceUid, category]);
 
   const handleChange = e => {
     const { name, value, dataset } = e.target;
+
     if (dataset.index !== undefined) {
       const index = dataset.index;
       const property = name.split('_')[0];
+
       setFormData(prevState => {
         const updatedAnnotations = [...prevState.annotations];
         updatedAnnotations[index] = {
           ...updatedAnnotations[index],
           [property]: value,
         };
-        return {
-          ...prevState,
-          annotations: updatedAnnotations,
-        };
+        return { ...prevState, annotations: updatedAnnotations };
       });
     } else {
-      setFormData(prevState => ({
-        ...prevState,
-        [name]: value,
-      }));
+      setFormData(prevState => ({ ...prevState, [name]: value }));
     }
   };
 
@@ -94,60 +103,52 @@ function ActionButtons({ disabled = false, data = null, orthancId = null }) {
 
   const handleSubmit = async e => {
     e.preventDefault();
-    const { indications, findings, histopathology, annotations } = formData;
+    console.log(`📝 Submit button clicked for Category: ${category}`);
 
-    // Basic validation
-    let hasError = false;
-    const newErrors = {
-      findings: false,
-      indications: false,
-    };
+    let groundTruthData = {};
 
-    if (!indications) {
-      newErrors.indications = true;
-      hasError = true;
-    }
-
-    if (!findings) {
-      newErrors.findings = true;
-      hasError = true;
-    }
-
-    setErrors(newErrors);
-
-    if (hasError) {
+    if (category === 'mammo') {
+      groundTruthData = {
+        indications: formData.indications || '',
+        findings: formData.findings || '',
+        histopathology: formData.histopathology || '',
+        annotations: formData.annotations.map((annotation, index) => ({
+          topLeft: data?.[index]?.baseDisplayText || '',
+          bottomRight: data?.[index]?.baseLabel || '',
+          biradScore: annotation.biradScore || '', // ✅ Mammo-specific field
+        })),
+      };
+    } else {
+      console.error('❌ ERROR: Unknown category!');
       return;
     }
-    const groundTruthData = {
-      indications,
-      findings,
-      histopathology,
-      annotations: annotations.map((annotation, index) => ({
-        topLeft: data[index].baseDisplayText,
-        bottomRight: data[index].baseLabel,
-        biradScore: annotation.biradScore,
-        lesionType: annotation.lesionType,
-      })),
-    };
 
-    console.log('Ground Truth Data:', groundTruthData);
+    console.log('📌 Data to be saved:', groundTruthData);
+    console.log(`📡 Sending request to Mock API...`);
+    console.log(`Category: ${category || '❌ UNDEFINED'}, Study UID: ${studyInstanceUid}`);
 
     try {
-      // Use the apiClient to send the ground truth data
-      const response = await apiClient.putGroundTruth(studyInstanceUid, groundTruthData);
-      console.log('Response from API:', response);
-      setToastMessage('Ground truth data submitted successfully');
-      setTimeout(() => {
-        setToastMessage('');
-      }, 2500);
-      // alert('Ground truth data submitted successfully');
+      const response = await mockApi.saveGroundTruth(studyInstanceUid, category, groundTruthData);
+      console.log('✅ Mock API Response:', response);
+
+      if (response.success) {
+        setToastMessage('Ground truth data saved successfully');
+        setTimeout(() => setToastMessage(''), 2500);
+
+        // ✅ Ensure state updates correctly after saving
+        setFormData(groundTruthData);
+      } else {
+        console.error('❌ Error saving ground truth:', response.message);
+        alert('Failed to save ground truth data');
+      }
     } catch (error) {
-      console.error('Failed to submit ground truth data:', error);
-      alert('Failed to submit ground truth data');
+      console.error('❌ Error saving ground truth:', error);
+      alert('Failed to save ground truth data');
     }
   };
 
-  const isSubmitDisabled = formData.findings.trim() === '' || formData.indications.trim() === '';
+  const isSubmitDisabled =
+    (formData.findings || '').trim() === '' || (formData.indications || '').trim() === '';
 
   function cleanAndFormatJsonString(jsonArray) {
     let result = '';

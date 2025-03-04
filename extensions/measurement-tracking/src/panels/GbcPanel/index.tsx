@@ -228,6 +228,7 @@ function GbcPanel({ servicesManager, extensionManager }) {
                   additionalFindings.length === 0 && displayMeasurementsWithoutFindings.length === 0
                 }
                 orthancId={orthancId}
+                category="gbc"
               />
             </div>
           </>

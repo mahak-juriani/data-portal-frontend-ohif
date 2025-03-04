@@ -7,12 +7,15 @@ import apiClient from '../../../../../platform/ui/src/apis/apiClient';
 import { Classification } from '../Classification';
 import { OptionEnum } from '../../../../cornerstone/src/utils/OptionEnum';
 import RunModel from '../../runModelButton';
+import mockApi from '../../../../../platform/ui/src/apis/mockApi';
+
 function ActionButtons({
   onExportClick = () => alert('Export'),
   onCreateReportClick = () => alert('Create Report'),
   disabled = false,
   data = null,
   orthancId = null,
+  category,
 }) {
   const defaultValues = {
     demographicDetails: {
@@ -63,60 +66,48 @@ function ActionButtons({
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const response = await apiClient.getGroundTruth(studyInstanceUid);
-        if (response.success) {
-          const attachment = response.result.attachment;
-          console.log(response.result.attachment);
-          setFormData({
+        if (!category) {
+          console.error('❌ ERROR: category is undefined!');
+          return;
+        }
+
+        console.log(
+          `📡 Fetching Ground Truth for Study UID: ${studyInstanceUid}, Category: ${category}`
+        );
+
+        // ✅ Load from Mock API (stored in localStorage)
+        const storedData = await mockApi.getGroundTruth(studyInstanceUid, category);
+        if (storedData) {
+          console.log(`✅ Loaded Ground Truth from Mock API (${category}):`, storedData);
+
+          // ✅ Make sure values are properly set
+          setFormData(prevState => ({
+            ...prevState,
             demographicDetails: {
-              age: attachment.age || '',
-              gender: attachment.gender || '',
-              ethnicity: attachment.ethnicity || '',
-              familyHistoryOfCancer: attachment.familyHistoryOfCancer || '',
+              ...prevState.demographicDetails,
+              ...storedData.demographicDetails,
             },
             clinicalDetails: {
-              abdominalPain: attachment.abdominalPain || false,
-              vomiting: attachment.vomiting || false,
-              fever: attachment.fever || false,
-              lossOfWeight: attachment.lossOfWeight || false,
-              lossOfAppetite: attachment.lossOfAppetite || false,
-              jaundice: attachment.jaundice || false,
-              previousGallbladderAdmission: attachment.previousGallbladderAdmission || false,
+              ...prevState.clinicalDetails,
+              ...storedData.clinicalDetails,
             },
             ultrasoundFindings: {
-              appearance: attachment.appearance || '',
-              distension: attachment.distension || '',
-              stones: attachment.stones || false,
-              numberOfStones: attachment.numberOfStones || '',
-              largestStoneSize: attachment.largestStoneSize || '',
-              gallbladderMorphology: attachment.gallbladderMorphology || '',
-              siteOfLesion: attachment.siteOfLesion || '',
-              sizeOfLesion: attachment.sizeOfLesion || '',
-              liverLesions: attachment.liverLesions || false,
-              lymphNodes: attachment.lymphNodes || false,
-              ascites: attachment.ascites || false,
-              muralLayering: attachment.muralLayering || false,
-              intramuralEchogenicFoci: attachment.intramuralEchogenicFoci || false,
-              intramuralCysts: attachment.intramuralCysts || false,
-              interfaceWithLiver: attachment.interfaceWithLiver || '',
-              involvementOfBileDucts: attachment.involvementOfBileDucts || false,
-              involvementOfVessels: attachment.involvementOfVessels || false,
-              extramuralMass: attachment.extramuralMass || false,
+              ...prevState.ultrasoundFindings,
+              ...storedData.ultrasoundFindings,
             },
-            annotations: [{ gbRadScore: attachment.gbRadScore || '' }],
-          });
-        } else {
-          console.error('API call to load data unsuccessful');
+            annotations: storedData.annotations || [],
+          }));
+          return;
         }
       } catch (error) {
-        console.error(error);
+        console.error('❌ Error fetching Ground Truth:', error);
       }
     };
 
-    if (studyInstanceUid) {
+    if (studyInstanceUid && category) {
       fetchData();
     }
-  }, [studyInstanceUid]);
+  }, [studyInstanceUid, category]);
 
   const handleChange = e => {
     const { name, value, type, dataset } = e.target;
@@ -132,7 +123,7 @@ function ActionButtons({
         };
         return {
           ...prevState,
-          annotations: updatedAnnotations, // Return updated state
+          annotations: updatedAnnotations,
         };
       });
     } else {
@@ -183,29 +174,37 @@ function ActionButtons({
 
   const handleSubmit = async e => {
     e.preventDefault();
+    console.log(`📝 Submit button clicked for Category: ${category}`);
+
     const groundTruthData = {
-      ...formData.demographicDetails,
-      ...formData.clinicalDetails,
-      ...formData.ultrasoundFindings,
+      demographicDetails: { ...formData.demographicDetails },
+      clinicalDetails: { ...formData.clinicalDetails }, // ✅ Ensure clinical details are included
+      ultrasoundFindings: { ...formData.ultrasoundFindings },
       annotations: formData.annotations.map((annotation, index) => ({
-        topLeft: data[index].baseDisplayText,
-        bottomRight: data[index].baseLabel,
-        gbRadScore: annotation.gbRadScore,
+        topLeft: data[index]?.baseDisplayText || '',
+        bottomRight: data[index]?.baseLabel || '',
+        gbRadScore: annotation.gbRadScore || '',
       })),
     };
 
-    console.log('Ground Truth Data:', groundTruthData);
+    console.log('📌 Data to be saved:', groundTruthData);
+    console.log(`📡 Sending request to Mock API...`);
+    console.log(`Category: ${category || '❌ UNDEFINED'}, Study UID: ${studyInstanceUid}`);
+
     try {
-      // Use the apiClient to send the ground truth data
-      const response = await apiClient.putGroundTruth(studyInstanceUid, groundTruthData);
-      console.log('Response from API:', response);
-      setToastMessage('Ground truth data submitted successfully');
-      setTimeout(() => {
-        setToastMessage('');
-      }, 2500);
+      const response = await mockApi.saveGroundTruth(studyInstanceUid, category, groundTruthData);
+      console.log('✅ Mock API Response:', response);
+
+      if (response.success) {
+        setToastMessage('Ground truth data saved successfully');
+        setTimeout(() => setToastMessage(''), 2500);
+      } else {
+        console.error('❌ Error saving ground truth:', response.message);
+        alert('Failed to save ground truth data');
+      }
     } catch (error) {
-      console.error('Failed to submit ground truth data:', error);
-      alert('Failed to submit ground truth data');
+      console.error('❌ Error saving ground truth:', error);
+      alert('Failed to save ground truth data');
     }
   };
 
